@@ -1539,6 +1539,7 @@ public class ChannelManager implements MessageHandler {
 				return;
 
 			c.state = Channel.STATE_OPEN;
+			c.notifyAll();
 
 			pcoc = new PacketChannelOpenConfirmation(c.remoteID, c.localID,
 					c.localWindow, c.localMaxPacketSize);
