@@ -28,6 +28,7 @@ import java.net.InetSocketAddress;
 import java.net.NoRouteToHostException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.Semaphore;
 
 import net.sourceforge.jsocks.Proxy;
 import net.sourceforge.jsocks.ProxyMessage;
@@ -192,7 +193,7 @@ public class DynamicAcceptThread extends Thread implements IChannelWorkerThread 
 			} finally {
 				if (auth != null)
 					auth.endSession();
-				thread_num--;
+				threadBound.release();
 			}
 		}
 
@@ -232,9 +233,9 @@ public class DynamicAcceptThread extends Thread implements IChannelWorkerThread 
 			handleRequest(msg);
 		}
 	}
-	private volatile int thread_num = 0;
 	private ChannelManager cm;
-	private final static int MAX_THREAD_COUNT = 2;
+	private final static int MAX_THREAD_COUNT = 25;
+	private Semaphore threadBound = new Semaphore(MAX_THREAD_COUNT);
 
 	private ServerSocket ss;
 
@@ -274,23 +275,13 @@ public class DynamicAcceptThread extends Thread implements IChannelWorkerThread 
 				return;
 			}
 
+			threadBound.acquireUninterruptibly();
+			
 			DynamicAcceptRunnable dar = new DynamicAcceptRunnable(
 					new ServerAuthenticatorNone(), sock);
 			Thread t = new Thread(dar);
 			t.setDaemon(true);
 			t.start();
-			
-			thread_num++;
-			while (thread_num > MAX_THREAD_COUNT) {
-				Log.d("SOCKSProxy", "Max thread number exceeded");
-				System.gc();
-				try {
-					Thread.sleep(2000);
-				} catch (InterruptedException ignore) {
-					// Nothing
-				}
-			}
-
 		}
 	}
 
